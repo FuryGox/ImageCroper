@@ -163,6 +163,7 @@ export default function Home() {
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <h2>Detail Editor</h2>
             <button
+              name="close-button"
               style={{ color: "red" }}
               onClick={() => setOpenDetailEditor(!openDetailEditor)}
             >
@@ -317,7 +318,7 @@ export default function Home() {
                     }}
                   >
                     <button
-                      onClick={() => {}}
+                      onClick={() => { }}
                       style={{
                         marginLeft: "10px",
                         padding: "5px 10px",
@@ -490,10 +491,16 @@ export default function Home() {
         {image && (
           <Cropper
             image={image}
-            crop={crop}
+            crop={enableCrop ? crop : { x: 0, y: 0 }}
             zoom={zoom}
             maxZoom={20}
-            cropSize={cropSize}
+            cropperProps={enableCrop ? {
+              style: {
+                width: cropSize.width ? `${cropSize.width}px` : "100%",
+                height: cropSize.height ? `${cropSize.height}px` : "100%",
+              }
+            } : { style: { display: "none" } }}
+            cropSize={enableCrop ? cropSize : undefined}
             onCropChange={setCrop}
             onCropComplete={onCropComplete}
             onZoomChange={setZoom}
