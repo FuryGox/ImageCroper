@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback } from "react";
+import { createRoot } from "react-dom/client";
 import Cropper from "react-easy-crop";
 export default function Home() {
   const [openDetailEditor, setOpenDetailEditor] = useState(false);
@@ -57,6 +58,69 @@ export default function Home() {
     }
   }, []);
 
+  function onPreviewImage() {
+    if (!image) return;
+
+    // Get number of rows and columns from the input fields
+    const rowInput = document.getElementById("rows") as HTMLInputElement | null;
+    const colInput = document.getElementById("columns") as HTMLInputElement | null;
+    const rows = rowInput ? parseInt(rowInput.value, 10) : 2;
+    const cols = colInput ? parseInt(colInput.value, 10) : 2;
+
+    const { width: imgWidth, height: imgHeight } = imageInfo || { width: 0, height: 0 };
+    const sectionWidth = Math.floor(imgWidth / cols);
+    const sectionHeight = Math.floor(imgHeight / rows);
+
+    const croppedImages: string[] = [];
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new window.Image();
+    img.onload = () => {
+      let imgPos = 1;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          let sx = col * sectionWidth;
+          let sy = row * sectionHeight;
+          let sw = col === cols - 1 ? imgWidth - sx : sectionWidth;
+          let sh = row === rows - 1 ? imgHeight - sy : sectionHeight;
+
+          // Check if specifileMutipleData exists and has an entry for this imgPos
+          if (specifileMutipleData && specifileMutipleData.length > 0) {
+            const specifile = specifileMutipleData.find(d => d.imgPos === imgPos);
+            if (specifile) {
+              sw = specifile.width > 0 ? specifile.width : sw;
+              sh = specifile.height > 0 ? specifile.height : sh;
+            }
+          }
+
+          canvas.width = sw;
+          canvas.height = sh;
+          ctx.clearRect(0, 0, sw, sh);
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+          const croppedDataUrl = canvas.toDataURL();
+          croppedImages.push(croppedDataUrl);
+
+          imgPos++;
+        }
+      }
+      // Trigger the preview component with the cropped images
+      import("./page/preview").then(({ default: PreviewCropedImage }) => {
+        let previewElement = document.getElementById("preview-cropped-images") as HTMLDivElement | null;
+        if (!previewElement) {
+          previewElement = document.createElement("div");
+          previewElement.id = "preview-cropped-images";
+          document.body.appendChild(previewElement);
+        }
+        const root = createRoot(previewElement);
+        root.render(<PreviewCropedImage images={croppedImages} table={{ rows, cols }} />);
+      });
+    };
+    img.src = image;
+  }
+
   function onDetailSave() {
     if (cropIntoMutiple) {
       if (!imageInfo || !image) return;
@@ -86,28 +150,28 @@ export default function Home() {
         let imgPos = 1;
         for (let row = 0; row < rows; row++) {
           for (let col = 0; col < cols; col++) {
-        let sx = col * sectionWidth;
-        let sy = row * sectionHeight;
-        let sw = col === cols - 1 ? imgWidth - sx : sectionWidth;
-        let sh = row === rows - 1 ? imgHeight - sy : sectionHeight;
+            let sx = col * sectionWidth;
+            let sy = row * sectionHeight;
+            let sw = col === cols - 1 ? imgWidth - sx : sectionWidth;
+            let sh = row === rows - 1 ? imgHeight - sy : sectionHeight;
 
-        // Check if specifileMutipleData exists and has an entry for this imgPos
-        if (specifileMutipleData && specifileMutipleData.length > 0) {
-          const specifile = specifileMutipleData.find(d => d.imgPos === imgPos);
-          if (specifile) {
-            sw = specifile.width > 0 ? specifile.width : sw;
-            sh = specifile.height > 0 ? specifile.height : sh;
-          }
-        }
+            // Check if specifileMutipleData exists and has an entry for this imgPos
+            if (specifileMutipleData && specifileMutipleData.length > 0) {
+              const specifile = specifileMutipleData.find(d => d.imgPos === imgPos);
+              if (specifile) {
+                sw = specifile.width > 0 ? specifile.width : sw;
+                sh = specifile.height > 0 ? specifile.height : sh;
+              }
+            }
 
-        canvas.width = sw;
-        canvas.height = sh;
-        ctx.clearRect(0, 0, sw, sh);
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-        const croppedDataUrl = canvas.toDataURL();
-        croppedImages.push(croppedDataUrl);
+            canvas.width = sw;
+            canvas.height = sh;
+            ctx.clearRect(0, 0, sw, sh);
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+            const croppedDataUrl = canvas.toDataURL();
+            croppedImages.push(croppedDataUrl);
 
-        imgPos++;
+            imgPos++;
           }
         }
         import("jszip").then((JSZipModule) => {
@@ -161,8 +225,8 @@ export default function Home() {
             color: "#fff",
             backgroundColor: "#333",
             zIndex: 1000,
-            height: "80%",
-            width: "80%",
+            height: "80vh",
+            width: "60%",
             overflowY: "auto",
             borderRadius: "8px",
             display: "flex",
@@ -170,6 +234,7 @@ export default function Home() {
             gap: "20px",
             position: "relative",
             boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+            scrollbarWidth: "none"
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -214,8 +279,11 @@ export default function Home() {
               <span style={{ fontWeight: "bold" }}>
                 {imageInfo
                   ? `${imageInfo.width} x ${imageInfo.height}`
-                  : "No image selected"}
+                  : <input type="file" accept="image/*" onChange={onFileChange} style={
+                    { marginLeft: "10px", padding: "5px", borderRadius: "4px", border: "1px solid #ccc" }
+                  } />}
               </span>
+
             </span>
             <div style={{ marginTop: "10px" }}>
               <label>
@@ -375,7 +443,9 @@ export default function Home() {
                     }}
                   >
                     <button
-                      onClick={() => { }}
+                      onClick={() => {
+                        onPreviewImage();
+                      }}
                       style={{
                         marginLeft: "10px",
                         padding: "5px 10px",
@@ -393,6 +463,11 @@ export default function Home() {
                         setCropIntoMultiple(false);
                         setSpecifileMutipleData(null);
                         setCropSize({ width: 0, height: 0 });
+                        setEnableCrop(false);
+                        let previewElement = document.getElementById("preview-cropped-images");
+                        if (previewElement) {
+                          previewElement.innerHTML = "";
+                        }
                       }}
                       style={{
                         padding: "5px 10px",
@@ -408,6 +483,8 @@ export default function Home() {
                   </div>
                 </div>
               )}
+            </div>
+            <div id="preview-cropped-images" style={{ marginTop: "20px", maxHeight: "800px", overflowY: "auto", width: "100%" }}>
             </div>
           </div>
           <div
@@ -457,7 +534,14 @@ export default function Home() {
             onClick={() => {
               setOpenDetailEditor(true);
             }}
-            style={{ marginLeft: "10px" }}
+            style={{
+              padding: "5px 10px",
+              backgroundColor: "#007bff",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
           >
             Open Detail editor
           </button>
