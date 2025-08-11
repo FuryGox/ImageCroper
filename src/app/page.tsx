@@ -22,7 +22,7 @@ export default function Home() {
     height: number;
     width: number;
     imgPos: number;
-  } | null>(null);
+  }[] | null>(null);
 
   const onCropComplete = (
     croppedArea: { x: number; y: number; width: number; height: number },
@@ -83,19 +83,31 @@ export default function Home() {
 
       const img = new window.Image();
       img.onload = () => {
+        let imgPos = 1;
         for (let row = 0; row < rows; row++) {
           for (let col = 0; col < cols; col++) {
-            const sx = col * sectionWidth;
-            const sy = row * sectionHeight;
-            const sw = col === cols - 1 ? imgWidth - sx : sectionWidth;
-            const sh = row === rows - 1 ? imgHeight - sy : sectionHeight;
+        let sx = col * sectionWidth;
+        let sy = row * sectionHeight;
+        let sw = col === cols - 1 ? imgWidth - sx : sectionWidth;
+        let sh = row === rows - 1 ? imgHeight - sy : sectionHeight;
 
-            canvas.width = sw;
-            canvas.height = sh;
-            ctx.clearRect(0, 0, sw, sh);
-            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-            const croppedDataUrl = canvas.toDataURL();
-            croppedImages.push(croppedDataUrl);
+        // Check if specifileMutipleData exists and has an entry for this imgPos
+        if (specifileMutipleData && specifileMutipleData.length > 0) {
+          const specifile = specifileMutipleData.find(d => d.imgPos === imgPos);
+          if (specifile) {
+            sw = specifile.width > 0 ? specifile.width : sw;
+            sh = specifile.height > 0 ? specifile.height : sh;
+          }
+        }
+
+        canvas.width = sw;
+        canvas.height = sh;
+        ctx.clearRect(0, 0, sw, sh);
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        const croppedDataUrl = canvas.toDataURL();
+        croppedImages.push(croppedDataUrl);
+
+        imgPos++;
           }
         }
         import("jszip").then((JSZipModule) => {
@@ -245,44 +257,70 @@ export default function Home() {
                   </label>
                   <label style={{ marginLeft: "20px" }}>
                     Specifile for image at :
-                    {specifileMutipleData ? (
-                      <span style={{ display: "inline" }}>
-                        <input
-                          type="number"
-                          value={specifileMutipleData.imgPos}
-                          onChange={(e) =>
-                            setSpecifileMutipleData({
-                              ...specifileMutipleData,
-                              imgPos: parseInt(e.target.value, 10),
-                            })
-                          }
-                          style={{ width: "60px", marginLeft: "10px" }}
-                        />
-                        <input
-                          type="number"
-                          value={specifileMutipleData.height}
-                          onChange={(e) =>
-                            setSpecifileMutipleData({
-                              ...specifileMutipleData,
-                              height: parseInt(e.target.value, 10),
-                            })
-                          }
-                          placeholder="Height"
-                          style={{ width: "60px", marginLeft: "10px" }}
-                        />
-                        <input
-                          type="number"
-                          value={specifileMutipleData.width}
-                          onChange={(e) =>
-                            setSpecifileMutipleData({
-                              ...specifileMutipleData,
-                              width: parseInt(e.target.value, 10),
-                            })
-                          }
-                          placeholder="Width"
-                          style={{ width: "60px", marginLeft: "10px" }}
-                        />
-                      </span>
+                    {(specifileMutipleData && specifileMutipleData != null) ? (
+                      <>
+                        <table style={{ marginLeft: "10px", width: "100%" }}>
+                          <thead>
+                            <tr>
+                              <th>Image Position</th>
+                              <th>Height</th>
+                              <th>Width</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {
+                              specifileMutipleData.map((data, index) => (
+                                <tr key={index}>
+                                  <td>{data.imgPos}</td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      value={data.height}
+                                      onChange={(e) => {
+                                        const newData = [...(specifileMutipleData || [])];
+                                        newData[index].height = parseInt(e.target.value);
+                                        setSpecifileMutipleData(newData);
+                                      }}
+                                      style={{ width: "80px" }}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      value={data.width}
+                                      onChange={(e) => {
+                                        const newData = [...(specifileMutipleData || [])];
+                                        newData[index].width = parseInt(e.target.value);
+                                        setSpecifileMutipleData(newData);
+                                      }}
+                                      style={{ width: "80px" }}
+                                    />
+                                  </td>
+                                  <td>
+                                    <button
+                                      onClick={() => {
+                                        setSpecifileMutipleData((prev) =>
+                                          prev ? prev.filter((_, i) => i !== index) : []
+                                        );
+                                      }}
+                                      style={{
+                                        padding: "5px 10px",
+                                        backgroundColor: "#dc3545",
+                                        color: "#fff",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Remove
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </>
                     ) : (
                       <p style={{ marginLeft: "10px", display: "inline" }}>
                         Default
@@ -290,11 +328,14 @@ export default function Home() {
                     )}
                     <button
                       onClick={() => {
-                        setSpecifileMutipleData({
-                          height: 100,
-                          width: 100,
-                          imgPos: 1,
-                        });
+                        setSpecifileMutipleData((prev) => [
+                          ...(prev || []),
+                          {
+                            height: 0,
+                            width: 0,
+                            imgPos: (specifileMutipleData || []).length + 1,
+                          },
+                        ]);
                       }}
                       style={{
                         marginLeft: "10px",
@@ -307,6 +348,22 @@ export default function Home() {
                       }}
                     >
                       Add Specifile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSpecifileMutipleData(null);
+                      }}
+                      style={{
+                        marginLeft: "10px",
+                        padding: "5px 10px",
+                        backgroundColor: "#dc3545",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Clear Specifile
                     </button>
                   </label>
                   <div
