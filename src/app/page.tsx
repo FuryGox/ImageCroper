@@ -1,29 +1,46 @@
 "use client";
+import React from "react";
 import { useState, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import Cropper from "react-easy-crop";
-export default function Home() {
-  const [openDetailEditor, setOpenDetailEditor] = useState(false);
-  const [enableCrop, setEnableCrop] = useState(false);
-  const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState<number>(1);
-  const [fileinfo, setFileInfo] = useState<{
-    name: string;
-    size: number;
-    type: string;
-  } | null>(null);
-  const [image, setImage] = useState<string | null>(null);
-  const [cropSize, setCropSize] = useState<{ width: number; height: number }>({
-    width: 0,
-    height: 0,
-  });
-  const [cropIntoMutiple, setCropIntoMultiple] = useState(false);
 
-  const [specifileMutipleData, setSpecifileMutipleData] = useState<{
-    height: number;
-    width: number;
-    imgPos: number;
-  }[] | null>(null);
+function usePersistentState<T>(key: string, initialValue: T) {
+  const [value, setValue] = React.useState<T>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        try {
+          return JSON.parse(saved) as T;
+        } catch {
+          return initialValue;
+        }
+      }
+    }
+    return initialValue;
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+
+  return [value, setValue] as const;
+}
+
+
+export default function Home() {
+  const [openDetailEditor, setOpenDetailEditor] = usePersistentState("openDetailEditor", false);
+  const [enableCrop, setEnableCrop] = usePersistentState("enableCrop", false);
+  const [crop, setCrop] = usePersistentState<{ x: number; y: number }>("crop", { x: 0, y: 0 });
+  const [zoom, setZoom] = usePersistentState<number>("zoom", 1);
+  const [fileinfo, setFileInfo] = usePersistentState<{ name: string; size: number; type: string } | null>("fileinfo", null);
+  const [image, setImage] = usePersistentState<string | null>("image", null);
+  const [cropSize, setCropSize] = usePersistentState<{ width: number; height: number }>("cropSize", { width: 0, height: 0 });
+  const [cropIntoMutiple, setCropIntoMultiple] = usePersistentState("cropIntoMutiple", false);
+  const [specifileMutipleData, setSpecifileMutipleData] = usePersistentState<{ height: number; width: number; imgPos: number }[] | null>(
+    "specifileMutipleData",
+    null
+  );
+  const [imageInfo, setImageInfo] = usePersistentState<{ width: number; height: number } | null>("imageInfo", null);
 
   const onCropComplete = (
     croppedArea: { x: number; y: number; width: number; height: number },
@@ -31,11 +48,6 @@ export default function Home() {
   ) => {
     console.log(croppedArea, croppedAreaPixels);
   };
-
-  const [imageInfo, setImageInfo] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
 
   const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,20 +71,18 @@ export default function Home() {
   }, []);
 
   function onPreviewImage() {
-    if (!image) return;
+    if (!image || !imageInfo) return;
 
-    // Get number of rows and columns from the input fields
     const rowInput = document.getElementById("rows") as HTMLInputElement | null;
     const colInput = document.getElementById("columns") as HTMLInputElement | null;
     const rows = rowInput ? parseInt(rowInput.value, 10) : 2;
     const cols = colInput ? parseInt(colInput.value, 10) : 2;
 
-    const { width: imgWidth, height: imgHeight } = imageInfo || { width: 0, height: 0 };
+    const { width: imgWidth, height: imgHeight } = imageInfo;
     const sectionWidth = Math.floor(imgWidth / cols);
     const sectionHeight = Math.floor(imgHeight / rows);
 
     const croppedImages: string[] = [];
-
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -87,7 +97,6 @@ export default function Home() {
           let sw = col === cols - 1 ? imgWidth - sx : sectionWidth;
           let sh = row === rows - 1 ? imgHeight - sy : sectionHeight;
 
-          // Check if specifileMutipleData exists and has an entry for this imgPos
           if (specifileMutipleData && specifileMutipleData.length > 0) {
             const specifile = specifileMutipleData.find(d => d.imgPos === imgPos);
             if (specifile) {
@@ -100,13 +109,11 @@ export default function Home() {
           canvas.height = sh;
           ctx.clearRect(0, 0, sw, sh);
           ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-          const croppedDataUrl = canvas.toDataURL();
-          croppedImages.push(croppedDataUrl);
+          croppedImages.push(canvas.toDataURL());
 
           imgPos++;
         }
       }
-      // Trigger the preview component with the cropped images
       import("./page/preview").then(({ default: PreviewCropedImage }) => {
         let previewElement = document.getElementById("preview-cropped-images") as HTMLDivElement | null;
         if (!previewElement) {
@@ -122,85 +129,74 @@ export default function Home() {
   }
 
   function onDetailSave() {
-    if (cropIntoMutiple) {
-      if (!imageInfo || !image) return;
+    if (!cropIntoMutiple || !imageInfo || !image) return;
 
-      // Get number of rows and columns from the input fields
-      const rowInput = document.getElementById(
-        "rows"
-      ) as HTMLInputElement | null;
-      const colInput = document.getElementById(
-        "columns"
-      ) as HTMLInputElement | null;
-      const rows = rowInput ? parseInt(rowInput.value, 10) : 2;
-      const cols = colInput ? parseInt(colInput.value, 10) : 2;
+    const rowInput = document.getElementById("rows") as HTMLInputElement | null;
+    const colInput = document.getElementById("columns") as HTMLInputElement | null;
+    const rows = rowInput ? parseInt(rowInput.value, 10) : 2;
+    const cols = colInput ? parseInt(colInput.value, 10) : 2;
 
-      const { width: imgWidth, height: imgHeight } = imageInfo;
-      const sectionWidth = Math.floor(imgWidth / cols);
-      const sectionHeight = Math.floor(imgHeight / rows);
+    const { width: imgWidth, height: imgHeight } = imageInfo;
+    const sectionWidth = Math.floor(imgWidth / cols);
+    const sectionHeight = Math.floor(imgHeight / rows);
 
-      const croppedImages: string[] = [];
+    const croppedImages: string[] = [];
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+    const img = new window.Image();
+    img.onload = () => {
+      let imgPos = 1;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          let sx = col * sectionWidth;
+          let sy = row * sectionHeight;
+          let sw = col === cols - 1 ? imgWidth - sx : sectionWidth;
+          let sh = row === rows - 1 ? imgHeight - sy : sectionHeight;
 
-      const img = new window.Image();
-      img.onload = () => {
-        let imgPos = 1;
-        for (let row = 0; row < rows; row++) {
-          for (let col = 0; col < cols; col++) {
-            let sx = col * sectionWidth;
-            let sy = row * sectionHeight;
-            let sw = col === cols - 1 ? imgWidth - sx : sectionWidth;
-            let sh = row === rows - 1 ? imgHeight - sy : sectionHeight;
-
-            // Check if specifileMutipleData exists and has an entry for this imgPos
-            if (specifileMutipleData && specifileMutipleData.length > 0) {
-              const specifile = specifileMutipleData.find(d => d.imgPos === imgPos);
-              if (specifile) {
-                sw = specifile.width > 0 ? specifile.width : sw;
-                sh = specifile.height > 0 ? specifile.height : sh;
-              }
+          if (specifileMutipleData && specifileMutipleData.length > 0) {
+            const specifile = specifileMutipleData.find(d => d.imgPos === imgPos);
+            if (specifile) {
+              sw = specifile.width > 0 ? specifile.width : sw;
+              sh = specifile.height > 0 ? specifile.height : sh;
             }
-
-            canvas.width = sw;
-            canvas.height = sh;
-            ctx.clearRect(0, 0, sw, sh);
-            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-            const croppedDataUrl = canvas.toDataURL();
-            croppedImages.push(croppedDataUrl);
-
-            imgPos++;
           }
+
+          canvas.width = sw;
+          canvas.height = sh;
+          ctx.clearRect(0, 0, sw, sh);
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+          croppedImages.push(canvas.toDataURL());
+
+          imgPos++;
         }
-        import("jszip").then((JSZipModule) => {
-          const JSZip = JSZipModule.default;
-          const zip = new JSZip();
-          croppedImages.forEach((dataUrl, idx) => {
-            // Convert base64 to blob
-            const arr = dataUrl.split(",");
-            const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
-            const bstr = atob(arr[1]);
-            let n = bstr.length;
-            const u8arr = new Uint8Array(n);
-            while (n--) {
-              u8arr[n] = bstr.charCodeAt(n);
-            }
-            zip.file(`cropped_${idx + 1}.png`, u8arr, { binary: true });
-          });
-          zip.generateAsync({ type: "blob" }).then((content) => {
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(content);
-            link.download = `${fileinfo?.name}_${Date.now()}.zip`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          });
+      }
+      import("jszip").then((JSZipModule) => {
+        const JSZip = JSZipModule.default;
+        const zip = new JSZip();
+        croppedImages.forEach((dataUrl, idx) => {
+          const arr = dataUrl.split(",");
+          const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+          const bstr = atob(arr[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          zip.file(`cropped_${idx + 1}.png`, u8arr, { binary: true });
         });
-      };
-      img.src = image;
-    }
+        zip.generateAsync({ type: "blob" }).then((content) => {
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(content);
+          link.download = `${fileinfo?.name}_${Date.now()}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+      });
+    };
+    img.src = image;
   }
 
   return (
