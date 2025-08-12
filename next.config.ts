@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
-
+const isProd = process.env.NODE_ENV === 'production';
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  basePath: isProd ? '/ImageCroper' : '', assetPrefix: isProd ? '/ImageCroper/' : '', images: {
+    unoptimized: true, // GitHub Pages does not support Next.js image optimization }, 
+  },
+}
 
-export default nextConfig;
+  export default nextConfig;
