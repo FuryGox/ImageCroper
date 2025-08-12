@@ -1,3 +1,4 @@
+"use client"
 const PreviewCropedImage = ({
     images, table
 }: { images: string[], table: { rows: number, cols: number } }) => {

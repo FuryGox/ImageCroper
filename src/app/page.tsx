@@ -1,7 +1,8 @@
 "use client";
-import { useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import Cropper from "react-easy-crop";
+
 export default function Home() {
   const [openDetailEditor, setOpenDetailEditor] = useState(false);
   const [enableCrop, setEnableCrop] = useState(false);
